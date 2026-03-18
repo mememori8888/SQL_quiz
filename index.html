@@ -1,0 +1,331 @@
+import React, { useState } from 'react';
+import { Database, Code2, CheckCircle, ChevronDown, ChevronUp, Play, Lightbulb, BookOpen } from 'lucide-react';
+
+// --- データ定義 ---
+const schemaData = [
+  {
+    name: "Orders (注文テーブル)",
+    columns: [
+      { name: "order_id", desc: "注文ID", type: "VARCHAR" },
+      { name: "customer_id", desc: "顧客ID", type: "VARCHAR" },
+      { name: "order_date", desc: "注文日", type: "DATE" },
+      { name: "total_amount", desc: "注文合計金額", type: "INT" },
+      { name: "status", desc: "ステータス ('完了', 'キャンセル', '返品')", type: "VARCHAR" }
+    ]
+  },
+  {
+    name: "OrderDetails (注文詳細テーブル)",
+    columns: [
+      { name: "detail_id", desc: "詳細ID", type: "VARCHAR" },
+      { name: "order_id", desc: "注文ID", type: "VARCHAR" },
+      { name: "product_id", desc: "商品ID", type: "VARCHAR" },
+      { name: "quantity", desc: "数量", type: "INT" },
+      { name: "unit_price", desc: "単価", type: "INT" }
+    ]
+  },
+  {
+    name: "Products (商品テーブル)",
+    columns: [
+      { name: "product_id", desc: "商品ID", type: "VARCHAR" },
+      { name: "product_name", desc: "商品名", type: "VARCHAR" },
+      { name: "category", desc: "カテゴリ ('家電', '本', '日用品' など)", type: "VARCHAR" },
+      { name: "seller_id", desc: "出品者ID", type: "VARCHAR" },
+      { name: "price", desc: "現在の価格", type: "INT" }
+    ]
+  },
+  {
+    name: "Customers (顧客テーブル)",
+    columns: [
+      { name: "customer_id", desc: "顧客ID", type: "VARCHAR" },
+      { name: "customer_name", desc: "顧客名", type: "VARCHAR" },
+      { name: "registration_date", desc: "登録日", type: "DATE" },
+      { name: "is_premium", desc: "プレミアム会員フラグ (1=はい, 0=いいえ)", type: "TINYINT" }
+    ]
+  },
+  {
+    name: "Reviews (レビューテーブル)",
+    columns: [
+      { name: "review_id", desc: "レビューID", type: "VARCHAR" },
+      { name: "product_id", desc: "商品ID", type: "VARCHAR" },
+      { name: "customer_id", desc: "顧客ID", type: "VARCHAR" },
+      { name: "rating", desc: "星の数 (1〜5)", type: "INT" },
+      { name: "review_date", desc: "投稿日", type: "DATE" }
+    ]
+  }
+];
+
+const levels = [
+  {
+    id: 1,
+    title: "基本的なデータ抽出 (SELECT, WHERE)",
+    questions: [
+      { id: 1, text: "すべての商品情報を取得する。", answer: "SELECT * FROM Products;" },
+      { id: 2, text: "商品テーブルから「商品名」と「価格」だけを取得する。", answer: "SELECT product_name, price FROM Products;" },
+      { id: 3, text: "「家電」カテゴリの商品すべてを取得する。", answer: "SELECT * FROM Products WHERE category = '家電';" },
+      { id: 4, text: "価格が10,000円以上の商品を取得する。", answer: "SELECT * FROM Products WHERE price >= 10000;" },
+      { id: 5, text: "「本」カテゴリで、かつ価格が3,000円以下の商品を取得する。", answer: "SELECT * FROM Products WHERE category = '本' AND price <= 3000;" },
+      { id: 6, text: "プレミアム会員（is_premium = 1）の顧客情報を取得する。", answer: "SELECT * FROM Customers WHERE is_premium = 1;" },
+      { id: 7, text: "ステータスが「キャンセル」の注文すべてを取得する。", answer: "SELECT * FROM Orders WHERE status = 'キャンセル';" },
+      { id: 8, text: "評価（星の数）が5のレビューすべてを取得する。", answer: "SELECT * FROM Reviews WHERE rating = 5;" },
+      { id: 9, text: "注文金額が5,000円〜10,000円の間の注文を取得する。（BETWEEN句を使用）", answer: "SELECT * FROM Orders WHERE total_amount BETWEEN 5000 AND 10000;" },
+      { id: 10, text: "商品名が「Echo」から始まる商品を取得する。（LIKE句を使用）", answer: "SELECT * FROM Products WHERE product_name LIKE 'Echo%';" }
+    ]
+  },
+  {
+    id: 2,
+    title: "データの並べ替えと制限 (ORDER BY, LIMIT)",
+    questions: [
+      { id: 11, text: "商品を価格の高い順（降順）に並べて取得する。", answer: "SELECT * FROM Products ORDER BY price DESC;" },
+      { id: 12, text: "商品をカテゴリ順に並べ、同じカテゴリ内では価格の安い順（昇順）に並べる。", answer: "SELECT * FROM Products ORDER BY category ASC, price ASC;" },
+      { id: 13, text: "最新のレビューを10件だけ取得する。", answer: "SELECT * FROM Reviews ORDER BY review_date DESC LIMIT 10;" },
+      { id: 14, text: "最も注文金額が高い注文をトップ5件だけ取得する。", answer: "SELECT * FROM Orders ORDER BY total_amount DESC LIMIT 5;" },
+      { id: 15, text: "価格が安い「日用品」カテゴリの商品トップ3件を取得する。", answer: "SELECT * FROM Products WHERE category = '日用品' ORDER BY price ASC LIMIT 3;" }
+    ]
+  },
+  {
+    id: 3,
+    title: "集計とグループ化 (GROUP BY, SUM, COUNT, AVG)",
+    questions: [
+      { id: 16, text: "テーブル内にある商品の総数を計算する。", answer: "SELECT COUNT(*) FROM Products;" },
+      { id: 17, text: "全注文の合計金額を計算する。", answer: "SELECT SUM(total_amount) FROM Orders;" },
+      { id: 18, text: "全商品の平均価格を計算する。", answer: "SELECT AVG(price) FROM Products;" },
+      { id: 19, text: "カテゴリごとに商品の数を計算する。", answer: "SELECT category, COUNT(product_id) FROM Products GROUP BY category;" },
+      { id: 20, text: "カテゴリごとに商品の平均価格を計算する。", answer: "SELECT category, AVG(price) FROM Products GROUP BY category;" },
+      { id: 21, text: "注文日ごとに注文件数を計算する。", answer: "SELECT order_date, COUNT(order_id) FROM Orders GROUP BY order_date;" },
+      { id: 22, text: "ステータスごとに注文の合計金額を計算する。", answer: "SELECT status, SUM(total_amount) FROM Orders GROUP BY status;" },
+      { id: 23, text: "商品ごとにレビューの平均評価を計算する。", answer: "SELECT product_id, AVG(rating) FROM Reviews GROUP BY product_id;" },
+      { id: 24, text: "顧客ごとに注文した回数（注文テーブルの行数）を計算する。", answer: "SELECT customer_id, COUNT(order_id) FROM Orders GROUP BY customer_id;" },
+      { id: 25, text: "商品ごとに売れた総数量（注文詳細テーブル）を計算する。", answer: "SELECT product_id, SUM(quantity) FROM OrderDetails GROUP BY product_id;" }
+    ]
+  },
+  {
+    id: 4,
+    title: "集計後の絞り込み (HAVING)",
+    questions: [
+      { id: 26, text: "商品数が50個以上あるカテゴリだけを抽出する。", answer: "SELECT category, COUNT(product_id) FROM Products GROUP BY category HAVING COUNT(product_id) >= 50;" },
+      { id: 27, text: "平均評価が4.0以上の商品だけを抽出する。", answer: "SELECT product_id, AVG(rating) FROM Reviews GROUP BY product_id HAVING AVG(rating) >= 4.0;" },
+      { id: 28, text: "合計で100回以上注文している（優良）顧客だけを抽出する。", answer: "SELECT customer_id, COUNT(order_id) FROM Orders GROUP BY customer_id HAVING COUNT(order_id) >= 100;" },
+      { id: 29, text: "キャンセルされた注文の合計金額が10万円を超えている日を抽出する。", answer: "SELECT order_date, SUM(total_amount) FROM Orders WHERE status = 'キャンセル' GROUP BY order_date HAVING SUM(total_amount) > 100000;" },
+      { id: 30, text: "レビュー件数が10件以上あり、かつ平均評価が3.5以上の商品だけを抽出する。", answer: "SELECT product_id, COUNT(review_id), AVG(rating) FROM Reviews GROUP BY product_id HAVING COUNT(review_id) >= 10 AND AVG(rating) >= 3.5;" }
+    ]
+  },
+  {
+    id: 5,
+    title: "テーブルの結合 (INNER JOIN)",
+    questions: [
+      { id: 31, text: "注文情報（Orders）と顧客情報（Customers）を結合し、「注文ID」と「顧客名」を取得する。", answer: "SELECT O.order_id, C.customer_name FROM Orders AS O INNER JOIN Customers AS C ON O.customer_id = C.customer_id;" },
+      { id: 32, text: "注文詳細（OrderDetails）と商品情報（Products）を結合し、「注文ID」「商品名」「数量」を取得する。", answer: "SELECT OD.order_id, P.product_name, OD.quantity FROM OrderDetails AS OD INNER JOIN Products AS P ON OD.product_id = P.product_id;" },
+      { id: 33, text: "レビュー（Reviews）と商品情報（Products）を結合し、「商品名」と「評価（星の数）」を取得する。", answer: "SELECT P.product_name, R.rating FROM Reviews AS R INNER JOIN Products AS P ON R.product_id = P.product_id;" },
+      { id: 34, text: "「家電」カテゴリの商品を買った顧客の「顧客名」を重複なく取得する。", answer: "SELECT DISTINCT C.customer_name FROM Customers AS C INNER JOIN Orders AS O ON C.customer_id = O.customer_id INNER JOIN OrderDetails AS OD ON O.order_id = OD.order_id INNER JOIN Products AS P ON OD.product_id = P.product_id WHERE P.category = '家電';" },
+      { id: 35, text: "商品ごとに、売れた数量の合計（OrderDetails）を計算し、「商品名」と「合計数量」を取得する。", answer: "SELECT P.product_name, SUM(OD.quantity) FROM OrderDetails AS OD INNER JOIN Products AS P ON OD.product_id = P.product_id GROUP BY P.product_name;" },
+      { id: 36, text: "カテゴリごとに、売れた数量の合計を計算し、「カテゴリ名」と「合計数量」を取得する。", answer: "SELECT P.category, SUM(OD.quantity) FROM OrderDetails AS OD INNER JOIN Products AS P ON OD.product_id = P.product_id GROUP BY P.category;" },
+      { id: 37, text: "プレミアム会員が買った商品の「商品名」を重複なく取得する。", answer: "SELECT DISTINCT P.product_name FROM Products AS P INNER JOIN OrderDetails AS OD ON P.product_id = OD.product_id INNER JOIN Orders AS O ON OD.order_id = O.order_id INNER JOIN Customers AS C ON O.customer_id = C.customer_id WHERE C.is_premium = 1;" },
+      { id: 38, text: "評価が1（最低評価）のレビューがついている「商品名」と「そのレビューを書いた顧客名」を取得する。", answer: "SELECT P.product_name, C.customer_name FROM Reviews AS R INNER JOIN Products AS P ON R.product_id = P.product_id INNER JOIN Customers AS C ON R.customer_id = C.customer_id WHERE R.rating = 1;" },
+      { id: 39, text: "最も多く注文（回数）をしている顧客の「顧客名」と「注文件数」を取得する。", answer: "SELECT C.customer_name, COUNT(O.order_id) AS order_count FROM Customers AS C INNER JOIN Orders AS O ON C.customer_id = O.customer_id GROUP BY C.customer_name ORDER BY order_count DESC LIMIT 1;" },
+      { id: 40, text: "売上合計金額が最も高い「商品名」を取得する。", answer: "SELECT P.product_name, SUM(OD.quantity * OD.unit_price) AS total_sales FROM OrderDetails AS OD INNER JOIN Products AS P ON OD.product_id = P.product_id GROUP BY P.product_name ORDER BY total_sales DESC LIMIT 1;" }
+    ]
+  },
+  {
+    id: 6,
+    title: "実践的な複合クエリ（より複雑なJOINと集計）",
+    questions: [
+      { id: 41, text: "（Orders, OrderDetails, Products の3つを結合）注文IDごとに、その注文に含まれる「商品名のリスト（カンマ区切りなど）」を取得する。", hint: "データベースによっては GROUP_CONCAT や STRING_AGG を使いますが、ここでは単純に結合できることだけを確認します", answer: "-- 例 (MySQL):\nSELECT O.order_id, GROUP_CONCAT(P.product_name)\nFROM Orders O\nINNER JOIN OrderDetails OD ON O.order_id = OD.order_id\nINNER JOIN Products P ON OD.product_id = P.product_id\nGROUP BY O.order_id;" },
+      { id: 42, text: "「2026年3月」に登録された顧客が、これまでに注文した合計金額を顧客ごとに取得する。", answer: "-- 例:\nSELECT C.customer_name, SUM(O.total_amount)\nFROM Customers C\nINNER JOIN Orders O ON C.customer_id = O.customer_id\nWHERE C.registration_date >= '2026-03-01' AND C.registration_date < '2026-04-01'\nGROUP BY C.customer_name;" },
+      { id: 43, text: "出品者IDごとに、販売している商品の「平均評価」を計算し、平均評価が高い順に並べる。", answer: "-- 例:\nSELECT P.seller_id, AVG(R.rating) AS avg_rating\nFROM Products P\nINNER JOIN Reviews R ON P.product_id = R.product_id\nGROUP BY P.seller_id\nORDER BY avg_rating DESC;" },
+      { id: 44, text: "「本」カテゴリの中で、一度も注文されたことがない商品を取得する。", hint: "LEFT JOIN と WHERE IS NULL を使用します。", answer: "-- 例:\nSELECT P.product_name\nFROM Products P\nLEFT JOIN OrderDetails OD ON P.product_id = OD.product_id\nWHERE P.category = '本' AND OD.order_id IS NULL;" },
+      { id: 45, text: "顧客ごとに、これまでの「キャンセル率（キャンセル回数 / 全注文回数）」を計算する。", hint: "CASE式を使用します。", answer: "-- 例:\nSELECT customer_id,\n       SUM(CASE WHEN status = 'キャンセル' THEN 1 ELSE 0 END) * 1.0 / COUNT(*) AS cancel_rate\nFROM Orders\nGROUP BY customer_id;" },
+      { id: 46, text: "月別に、注文合計金額の推移（売上トレンド）を取得する。", hint: "日付関数で年月を抽出します。", answer: "-- 例 (MySQL等):\nSELECT DATE_FORMAT(order_date, '%Y-%m') AS order_month, SUM(total_amount)\nFROM Orders\nGROUP BY DATE_FORMAT(order_date, '%Y-%m')\nORDER BY order_month;" },
+      { id: 47, text: "商品ごとに、レビューの「星5の件数」と「星1の件数」を横に並べて取得する。", hint: "SUMとCASE式を組み合わせます。", answer: "-- 例:\nSELECT product_id,\n       SUM(CASE WHEN rating = 5 THEN 1 ELSE 0 END) AS star_5_count,\n       SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) AS star_1_count\nFROM Reviews\nGROUP BY product_id;" },
+      { id: 48, text: "（自己結合）同じ日に複数回注文している顧客を取得する。", answer: "-- 例:\nSELECT DISTINCT O1.customer_id, O1.order_date\nFROM Orders O1\nINNER JOIN Orders O2 ON O1.customer_id = O2.customer_id \n                     AND O1.order_date = O2.order_date \n                     AND O1.order_id <> O2.order_id;" },
+      { id: 49, text: "カテゴリごとに、最も価格が高い商品を取得する。", hint: "サブクエリ、またはウィンドウ関数を使用します。", answer: "-- サブクエリ例:\nSELECT P1.category, P1.product_name, P1.price\nFROM Products P1\nWHERE P1.price = (\n    SELECT MAX(price) \n    FROM Products P2 \n    WHERE P1.category = P2.category\n);" },
+      { id: 50, text: "全注文の合計金額に対する、各カテゴリの売上構成比（%）を計算する。", answer: "-- 例 (クロスジョインとサブクエリを利用):\nSELECT P.category, \n       SUM(OD.quantity * OD.unit_price) * 100.0 / (\n           SELECT SUM(total_amount) FROM Orders\n       ) AS sales_ratio\nFROM OrderDetails OD\nINNER JOIN Products P ON OD.product_id = P.product_id\nGROUP BY P.category;" }
+    ]
+  }
+];
+
+// --- コンポーネント定義 ---
+
+const TableSchema = ({ table }) => (
+  <div className="bg-white border border-gray-200 rounded-lg shadow-sm mb-6 overflow-hidden">
+    <div className="bg-slate-50 px-4 py-3 border-b border-gray-200 font-semibold text-slate-800 flex items-center">
+      <Database className="w-5 h-5 mr-2 text-blue-600" />
+      {table.name}
+    </div>
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm text-left">
+        <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+          <tr>
+            <th className="px-4 py-3 font-medium">カラム名</th>
+            <th className="px-4 py-3 font-medium">データ型(想定)</th>
+            <th className="px-4 py-3 font-medium">説明</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {table.columns.map((col, idx) => (
+            <tr key={idx} className="hover:bg-slate-50">
+              <td className="px-4 py-2 font-mono text-blue-600">{col.name}</td>
+              <td className="px-4 py-2 text-slate-500 text-xs">{col.type}</td>
+              <td className="px-4 py-2 text-slate-700">{col.desc}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+const QuestionCard = ({ question }) => {
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [userQuery, setUserQuery] = useState("");
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-sm mb-6 overflow-hidden">
+      <div className="px-6 py-4 bg-slate-50 border-b border-gray-200 flex items-start">
+        <span className="flex-shrink-0 bg-[#ff9900] text-white font-bold rounded-full w-8 h-8 flex items-center justify-center mr-3 mt-0.5">
+          {question.id}
+        </span>
+        <div className="flex-grow">
+          <h3 className="text-lg font-medium text-slate-800 leading-snug">
+            {question.text}
+          </h3>
+          {question.hint && (
+            <div className="mt-2 text-sm text-amber-700 bg-amber-50 p-2 rounded flex items-start">
+              <Lightbulb className="w-4 h-4 mr-1.5 flex-shrink-0 mt-0.5" />
+              <span>{question.hint}</span>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <div className="p-6">
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-slate-600 mb-2 flex items-center">
+            <Code2 className="w-4 h-4 mr-1" /> あなたのクエリ
+          </label>
+          <textarea
+            className="w-full font-mono text-sm bg-slate-900 text-green-400 p-4 rounded-md outline-none focus:ring-2 focus:ring-[#ff9900] transition-all resize-y min-h-[100px]"
+            placeholder="SELECT ... FROM ..."
+            value={userQuery}
+            onChange={(e) => setUserQuery(e.target.value)}
+            spellCheck="false"
+          />
+        </div>
+
+        <button
+          onClick={() => setShowAnswer(!showAnswer)}
+          className="text-sm font-semibold flex items-center text-blue-600 hover:text-blue-800 transition-colors"
+        >
+          {showAnswer ? <ChevronUp className="w-4 h-4 mr-1" /> : <ChevronDown className="w-4 h-4 mr-1" />}
+          {showAnswer ? "解答を隠す" : "解答例を見る"}
+        </button>
+
+        {showAnswer && (
+          <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="bg-slate-100 rounded-md p-4 relative border border-slate-200">
+              <span className="absolute top-2 right-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Answer</span>
+              <pre className="font-mono text-sm text-slate-800 whitespace-pre-wrap">
+                {question.answer}
+              </pre>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState('schema'); // 'schema' or level id
+
+  return (
+    <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans text-slate-900">
+      
+      {/* Sidebar */}
+      <aside className="w-full md:w-64 bg-[#232f3e] text-white flex-shrink-0 flex flex-col shadow-xl z-10">
+        <div className="p-4 border-b border-slate-700 flex items-center space-x-2">
+          <Database className="w-6 h-6 text-[#ff9900]" />
+          <h1 className="text-xl font-bold tracking-tight">SQL Training</h1>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-4 space-y-1">
+          <button
+            onClick={() => setActiveTab('schema')}
+            className={`w-full text-left px-3 py-2.5 rounded-md text-sm font-medium transition-colors flex items-center ${
+              activeTab === 'schema' ? 'bg-[#ff9900] text-[#232f3e]' : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+            }`}
+          >
+            <BookOpen className="w-4 h-4 mr-2" />
+            テーブル定義 (Schema)
+          </button>
+          
+          <div className="pt-4 pb-2">
+            <p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              演習問題
+            </p>
+          </div>
+          
+          {levels.map(level => (
+            <button
+              key={level.id}
+              onClick={() => setActiveTab(level.id)}
+              className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-start ${
+                activeTab === level.id ? 'bg-slate-700 text-white font-medium border-l-4 border-[#ff9900]' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 border-l-4 border-transparent'
+              }`}
+            >
+              <span className="mr-2 mt-0.5 opacity-70">Lv.{level.id}</span>
+              <span className="line-clamp-2 leading-tight">{level.title}</span>
+            </button>
+          ))}
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 h-screen overflow-y-auto p-4 md:p-8">
+        <div className="max-w-4xl mx-auto">
+          
+          {/* Schema View */}
+          {activeTab === 'schema' && (
+            <div className="animate-in fade-in duration-500">
+              <h2 className="text-2xl font-bold mb-2 text-slate-800 border-b-2 border-[#ff9900] pb-2 inline-block">
+                前提となるテーブル構造
+              </h2>
+              <p className="text-slate-600 mb-8 mt-2">
+                Amazonのデータ抽出業務を想定した5つの主要テーブルです。問題を解く際のリファレンスとして活用してください。
+              </p>
+              
+              <div className="space-y-6">
+                {schemaData.map((table, idx) => (
+                  <TableSchema key={idx} table={table} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Level Questions View */}
+          {typeof activeTab === 'number' && (
+            <div className="animate-in fade-in duration-500">
+              {levels.filter(l => l.id === activeTab).map(level => (
+                <div key={level.id}>
+                  <div className="mb-8">
+                    <div className="flex items-center text-[#ff9900] mb-2 font-bold tracking-wide">
+                      <Play className="w-5 h-5 mr-1" fill="currentColor" />
+                      LEVEL {level.id}
+                    </div>
+                    <h2 className="text-3xl font-bold text-slate-800">{level.title}</h2>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    {level.questions.map(q => (
+                      <QuestionCard key={q.id} question={q} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+        </div>
+      </main>
+    </div>
+  );
+}
